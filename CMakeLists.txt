@@ -1,3 +1,7 @@
+# Copyright (C) 2023 Severin Strobl <git@severin-strobl.de>
+#
+#  SPDX-License-Identifier: MIT
+
 cmake_minimum_required(VERSION 3.16)
 project(gonia)
 

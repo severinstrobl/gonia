@@ -1,8 +1,16 @@
-add_subdirectory("${PROJECT_SOURCE_DIR}/third_party/catch2"
-                 "third_party/catch2" EXCLUDE_FROM_ALL)
+# Copyright (C) 2023 Severin Strobl <git@severin-strobl.de>
+#
+#  SPDX-License-Identifier: MIT
 
-list(APPEND CMAKE_MODULE_PATH
-     "${PROJECT_SOURCE_DIR}/third_party/catch2/contrib")
+include(FetchContent)
+
+FetchContent_Declare(Catch2
+  GIT_REPOSITORY https://github.com/catchorg/Catch2.git
+  GIT_TAG        v3.4.0
+  GIT_SHALLOW    TRUE
+)
+
+FetchContent_MakeAvailable(Catch2)
 
 include(CTest)
 include(Catch)

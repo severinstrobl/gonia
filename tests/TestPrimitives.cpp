@@ -1,9 +1,12 @@
+// Copyright (C) 2023 Severin Strobl <git@severin-strobl.de>
+//
+// SPDX-License-Identifier: MIT
+
 #include <catch2/catch_test_macros.hpp>
 
 #include "gonia/shamos_hoey.hpp"
 
 TEST_CASE("Point", "[ConstExpr]") {
-
   SECTION("constructor") {
     STATIC_CHECK(Point<int>{0, 1}.x == 0);
     STATIC_CHECK(Point<int>{0, 1}.y == 1);

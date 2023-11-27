@@ -1,0 +1,5 @@
+/.cache
+/.venv
+/.vscode
+/build*/
+__pycache__/

@@ -1,0 +1,8 @@
+---
+Language: Cpp
+BasedOnStyle: Google
+AllowShortIfStatementsOnASingleLine: false
+DerivePointerAlignment: false
+InsertBraces: true
+SpaceAfterTemplateKeyword: false
+...

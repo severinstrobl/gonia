@@ -1,3 +1,7 @@
+// Copyright (C) 2023 Severin Strobl <git@severin-strobl.de>
+//
+// SPDX-License-Identifier: MIT
+
 #pragma once
 
 #include <algorithm>
@@ -7,66 +11,74 @@
 #include <stdexcept>
 #include <vector>
 
-template <typename T> struct Point {
-  friend constexpr auto operator<=>(const Point &lhs,
-                                    const Point &rhs) = default;
+template<typename T>
+struct Point {
+  friend constexpr auto operator<=>(const Point& lhs,
+                                    const Point& rhs) = default;
 
   T x;
   T y;
 };
 
-template <typename T> struct Segment {
-  friend constexpr auto operator<=>(const Segment &lhs,
-                                    const Segment &rhs) = default;
+template<typename T>
+struct Segment {
+  friend constexpr auto operator<=>(const Segment& lhs,
+                                    const Segment& rhs) = default;
 
   Point<T> first;
   Point<T> second;
 };
 
-template <typename T> struct Polygon {
+template<typename T>
+struct Polygon {
   std::vector<Point<T>> vertices;
 };
 
-template <typename T> struct Endpoint {
-  friend constexpr auto operator<=>(const Endpoint &lhs,
-                                    const Endpoint &rhs) = default;
+template<typename T>
+struct Endpoint {
+  friend constexpr auto operator<=>(const Endpoint& lhs,
+                                    const Endpoint& rhs) = default;
 
   Point<T> vertex;
   std::size_t segment_idx = std::size_t{-1UL};
   bool start = false;
 };
 
-template <typename T>
-constexpr T signed_area(const Point<T> &a, const Point<T> &b,
-                        const Point<T> &c) {
+template<typename T>
+constexpr auto signed_area(const Point<T>& a, const Point<T>& b,
+                           const Point<T>& c) -> T {
   return (a.x - c.x) * (b.y - c.y) - (a.y - c.y) * (b.x - c.x);
 }
 
-template <typename T>
-constexpr bool intersect(const Segment<T> &lhs, const Segment<T> &rhs) {
+template<typename T>
+constexpr auto intersect(const Segment<T>& lhs, const Segment<T>& rhs) -> bool {
   // identical segments
   if (lhs == rhs || lhs == Segment<T>(rhs.second, rhs.first)) {
     return true;
   }
 
-  const auto a1 = signed_area(lhs.first, lhs.second, rhs.second);
-  const auto a2 = signed_area(lhs.first, lhs.second, rhs.first);
-  if (a1 * a2 >= 0) {
+  const auto area1 = signed_area(lhs.first, lhs.second, rhs.second);
+  const auto area2 = signed_area(lhs.first, lhs.second, rhs.first);
+  if (area1 * area2 >= T{0}) {
     return false;
   }
 
-  const auto a3 = signed_area(rhs.first, rhs.second, lhs.first);
-  const auto a4 = a3 + a2 - a1;
+  const auto area3 = signed_area(rhs.first, rhs.second, lhs.first);
+  const auto area4 = area3 + area2 - area1;
 
-  return a3 * a4 < 0;
+  return area3 * area4 < T{0};
 }
 
 template<typename T>
-inline bool intersect(const std::vector<Segment<T>> &segments) {
+inline auto intersect(const std::vector<Segment<T>>& segments) -> bool {
+  if (segments.size() < 2) {
+    return false;
+  }
+
   using Endpoint = Endpoint<T>;
   std::vector<Endpoint> endpoints{};
   endpoints.reserve(segments.size() * 2);
-  for (auto idx = 0U; const auto &segment : segments) {
+  for (auto idx = 0U; const auto& segment : segments) {
     const auto flipped = segment.first > segment.second;
     endpoints.emplace_back(segment.first, idx, !flipped);
     endpoints.emplace_back(segment.second, idx, flipped);
@@ -78,7 +90,7 @@ inline bool intersect(const std::vector<Segment<T>> &segments) {
 
   using Segment = Segment<T>;
   std::set<Segment, std::less<Segment>> sweep_line;
-  for (const auto &endpoint : endpoints) {
+  for (const auto& endpoint : endpoints) {
     const auto segment = segments[endpoint.segment_idx];
 
     if (endpoint.start) {
@@ -116,7 +128,7 @@ inline bool intersect(const std::vector<Segment<T>> &segments) {
 }
 
 template<typename T>
-inline bool is_simple(const Polygon<T> &polygon) {
+inline auto is_simple(const Polygon<T>& polygon) -> bool {
   if (polygon.vertices.size() < 3U) {
     return true;
   }
@@ -129,12 +141,30 @@ inline bool is_simple(const Polygon<T> &polygon) {
   std::vector<Segment> segments{};
   segments.reserve(polygon.vertices.size() - 1);
 
-  std::ranges::adjacent_find(polygon.vertices,
-                             [&](const auto &first, const auto &second) {
-                               segments.emplace_back(first, second);
+  const auto duplicates = std::ranges::adjacent_find(
+      polygon.vertices, [&](const auto& first, const auto& second) {
+        if (first == second) {
+          return true;
+        }
 
-                               return false;
-                             });
+        segments.emplace_back(first, second);
+        return false;
+      });
+
+  if (duplicates != polygon.vertices.end()) {
+    return false;
+  }
+
+  // TODO(severin): ensure polygon has no holes
 
   return !intersect(segments);
+}
+
+template<typename T>
+inline auto is_closed(const Polygon<T>& polygon) -> bool {
+  if (polygon.vertices.size() < 4U) {
+    return false;
+  }
+
+  return polygon.vertices.front() == polygon.vertices.back();
 }
