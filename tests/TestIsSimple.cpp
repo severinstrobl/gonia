@@ -3,36 +3,58 @@
 // SPDX-License-Identifier: MIT
 
 #include <catch2/catch_test_macros.hpp>
+#include <catch2/matchers/catch_matchers_all.hpp>
 #include <ranges>
 #include <span>
 
 #include "gonia/shamos_hoey.hpp"
 
-TEST_CASE("IsSimple", "{component}") {
-  SECTION("trivial") {
-    CHECK(is_simple(Polygon<int>{{{0, 0}}}));
-    CHECK(is_simple(Polygon<int>{{{0, 0}, {1, 0}}}));
+using Catch::Matchers::ContainsSubstring;
+
+TEST_CASE("IsSimple", "[component]") {
+  SECTION("degenerate") {
+    CHECK_THROWS_WITH(is_simple(Polygon<int>{{{0, 0}}}),
+                      ContainsSubstring("degenerate polygon detected"));
+
+    CHECK_THROWS_WITH(is_simple(Polygon<int>{{{0, 0}, {1, 0}}}),
+                      ContainsSubstring("degenerate polygon detected"));
   }
 
-  SECTION("duplicate") {
-    CHECK_FALSE(is_simple(Polygon<int>{{{0, 0}, {1, 0}, {0, 0}}}));
-  }
+  SECTION("tri") { CHECK(is_simple(Polygon<int>{{{0, 0}, {1, 0}, {1, 1}}})); }
 
-  SECTION("tri") {
-    CHECK(is_simple(Polygon<int>{{{0, 0}, {2, 0}, {1, 1}, {0, 0}}}));
+  SECTION("tri_degenerate") {
+    CHECK_FALSE(is_simple(Polygon<int>{{{0, 0}, {1, 0}, {1, 0}}}));
   }
 
   SECTION("quad") {
-    CHECK(is_simple(Polygon<int>{{{0, 0}, {1, 0}, {1, 1}, {0, 1}, {0, 0}}}));
+    CHECK(is_simple(Polygon<int>{{{0, 0}, {1, 0}, {1, 1}, {0, 1}}}));
+  }
+
+  SECTION("quad_degenerate") {
+    CHECK_FALSE(is_simple(Polygon<int>{{{0, 0}, {1, 0}, {1, 0}, {0, 1}}}));
   }
 
   SECTION("crossed") {
-    CHECK(!is_simple(Polygon<int>{{{0, 0}, {1, 1}, {1, 0}, {0, 1}, {0, 0}}}));
+    CHECK(!is_simple(Polygon<int>{{{0, 0}, {1, 1}, {1, 0}, {0, 1}}}));
   }
 
   SECTION("duplicates") {
+    CHECK(!is_simple(Polygon<int>{{{0, 0}, {1, 0}, {1, 1}, {1, 1}, {0, 1}}}));
+  }
+
+  ///  |\     /|
+  ///  | \   / |
+  ///  |__\./__|
+  SECTION("touching_vertex") {
     CHECK(!is_simple(
-        Polygon<int>{{{0, 0}, {1, 0}, {1, 1}, {1, 1}, {0, 1}, {0, 0}}}));
+        Polygon<int>{{{-1, 0}, {0, 0}, {1, 0}, {1, 1}, {0, 0}, {-1, 1}}}));
+  }
+
+  ///  |\    /|
+  ///  | \  / |
+  ///  |__\/__|
+  SECTION("touching_edge") {
+    CHECK(!is_simple(Polygon<int>{{{-1, 0}, {1, 0}, {1, 1}, {0, 0}, {-1, 1}}}));
   }
 
   SECTION("jagged") {
@@ -52,7 +74,7 @@ TEST_CASE("IsSimple", "{component}") {
       {76.584247, 37.678362},  {64.230713, 35.673387},
       {64.230713, 24.980182},  {47.759336, 24.980182},
       {37.464725, 30.326784},  {0.404125, 30.326784},
-      {53.936102, 19.63358},   {84.819935, 22.975206}
+      {53.936102, 19.63358}
     }};
     // clang-format on
 

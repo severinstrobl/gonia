@@ -21,6 +21,16 @@ struct Point {
 };
 
 template<typename T>
+constexpr auto dot(const Point<T>& lhs, const Point<T>& rhs) -> T {
+  return lhs.x * rhs.x + lhs.y * rhs.y;
+}
+
+template<typename T>
+constexpr auto operator-(const Point<T>& lhs, const Point<T>& rhs) -> Point<T> {
+  return {lhs.x - rhs.x, lhs.y - rhs.y};
+}
+
+template<typename T>
 struct Segment {
   friend constexpr auto operator<=>(const Segment& lhs,
                                     const Segment& rhs) = default;
@@ -59,40 +69,47 @@ constexpr auto intersect(const Segment<T>& lhs, const Segment<T>& rhs) -> bool {
 
   const auto area1 = signed_area(lhs.first, lhs.second, rhs.second);
   const auto area2 = signed_area(lhs.first, lhs.second, rhs.first);
-  if (area1 * area2 >= T{0}) {
+  if (area1 * area2 > T{0}) {
     return false;
   }
 
   const auto area3 = signed_area(rhs.first, rhs.second, lhs.first);
   const auto area4 = area3 + area2 - area1;
-
-  return area3 * area4 < T{0};
-}
-
-template<typename T>
-inline auto intersect(const std::vector<Segment<T>>& segments) -> bool {
-  if (segments.size() < 2) {
+  if (area3 * area4 > T{0}) {
     return false;
   }
 
-  using Endpoint = Endpoint<T>;
-  std::vector<Endpoint> endpoints{};
-  endpoints.reserve(segments.size() * 2);
-  for (auto idx = 0U; const auto& segment : segments) {
-    const auto flipped = segment.first > segment.second;
-    endpoints.emplace_back(segment.first, idx, !flipped);
-    endpoints.emplace_back(segment.second, idx, flipped);
-
-    ++idx;
+  // segments definitively intersect iff one of the areas is negative
+  if (area1 * area2 < T{0} || area3 * area4 < T{0}) {
+    return true;
   }
 
-  std::ranges::sort(endpoints);
+  // for colinear segments, overlap between segments has to be checked
+  if (std::ranges::all_of(
+          std::array{area1, area2, area3, area4}, [](const auto& area) {
+            return std::abs(area) <= std::numeric_limits<T>::epsilon();
+          })) {
+    for (const auto& p : {rhs.first, rhs.second}) {
+      if (dot(lhs.first - lhs.second, p - lhs.second) > T{0} &&
+          dot(lhs.second - lhs.first, p - lhs.first) > T{0}) {
+        return true;
+      }
+    }
+  }
 
+  return false;
+}
+
+namespace detail {
+
+template<typename T>
+inline auto intersect_impl(const std::vector<Segment<T>>& segments,
+                           const std::vector<Endpoint<T>>& sorted_endpoints)
+    -> bool {
   using Segment = Segment<T>;
   std::set<Segment, std::less<Segment>> sweep_line;
-  for (const auto& endpoint : endpoints) {
-    const auto segment = segments[endpoint.segment_idx];
-
+  for (const auto& endpoint : sorted_endpoints) {
+    const auto& segment = segments[endpoint.segment_idx];
     if (endpoint.start) {
       const auto [pos, added] =
           sweep_line.emplace(segment.first, segment.second);
@@ -127,19 +144,43 @@ inline auto intersect(const std::vector<Segment<T>>& segments) -> bool {
   return false;
 }
 
+}  // namespace detail
+
 template<typename T>
-inline auto is_simple(const Polygon<T>& polygon) -> bool {
-  if (polygon.vertices.size() < 3U) {
-    return true;
+inline auto intersect(const std::vector<Segment<T>>& segments) -> bool {
+  if (segments.size() < 2u) {
+    return false;
   }
 
-  if (polygon.vertices.front() != polygon.vertices.back()) {
-    throw std::invalid_argument{"polygon must be closed"};
+  std::vector<Endpoint<T>> endpoints{};
+  endpoints.reserve(segments.size() * 2);
+  for (auto idx = 0u; const auto& segment : segments) {
+    const auto flipped = segment.first > segment.second;
+    endpoints.emplace_back(segment.first, idx, !flipped);
+    endpoints.emplace_back(segment.second, idx, flipped);
+
+    ++idx;
+  }
+
+  std::ranges::sort(endpoints);
+
+  return detail::intersect_impl(segments, endpoints);
+}
+
+template<typename T>
+inline auto is_simple(const Polygon<T>& polygon) -> bool {
+  if (polygon.vertices.size() < 3u) {
+    throw std::invalid_argument{
+        "degenerate polygon detected, at least three points required"};
+  }
+
+  if (polygon.vertices.front() == polygon.vertices.back()) {
+    throw std::invalid_argument{"polygon must not be closed"};
   }
 
   using Segment = Segment<T>;
   std::vector<Segment> segments{};
-  segments.reserve(polygon.vertices.size() - 1);
+  segments.reserve(polygon.vertices.size());
 
   const auto duplicates = std::ranges::adjacent_find(
       polygon.vertices, [&](const auto& first, const auto& second) {
@@ -155,16 +196,35 @@ inline auto is_simple(const Polygon<T>& polygon) -> bool {
     return false;
   }
 
-  // TODO(severin): ensure polygon has no holes
+  // final segment connecting first and last point
+  segments.emplace_back(polygon.vertices.back(), polygon.vertices.front());
 
-  return !intersect(segments);
-}
+  std::vector<Endpoint<T>> endpoints{};
+  endpoints.reserve(segments.size() * 2);
+  for (auto idx = 0u; const auto& segment : segments) {
+    const auto flipped = segment.first > segment.second;
+    endpoints.emplace_back(segment.first, idx, !flipped);
+    endpoints.emplace_back(segment.second, idx, flipped);
 
-template<typename T>
-inline auto is_closed(const Polygon<T>& polygon) -> bool {
-  if (polygon.vertices.size() < 4U) {
-    return false;
+    ++idx;
   }
 
-  return polygon.vertices.front() == polygon.vertices.back();
+  std::ranges::sort(endpoints);
+
+  // each point coordinate must appear exactly twice in the sorted endpoints
+  for (auto it = endpoints.begin(); it != endpoints.end();) {
+    const auto range_end = std::find_if_not(
+        it, endpoints.end(),
+        [&](const auto& ep) { return it->vertex == ep.vertex; });
+
+    if (std::distance(it, range_end) != 2u) {
+      return false;
+    }
+
+    it = range_end;
+  }
+
+  // TODO(severin): ensure polygon has no holes
+
+  return !detail::intersect_impl(segments, endpoints);
 }

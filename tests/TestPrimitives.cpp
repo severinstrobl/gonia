@@ -6,7 +6,7 @@
 
 #include "gonia/shamos_hoey.hpp"
 
-TEST_CASE("Point", "[ConstExpr]") {
+TEST_CASE("Point", "[unit]") {
   SECTION("constructor") {
     STATIC_CHECK(Point<int>{0, 1}.x == 0);
     STATIC_CHECK(Point<int>{0, 1}.y == 1);
