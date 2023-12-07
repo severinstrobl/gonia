@@ -60,6 +60,10 @@ constexpr auto signed_area(const Point<T>& a, const Point<T>& b,
   return (a.x - c.x) * (b.y - c.y) - (a.y - c.y) * (b.x - c.x);
 }
 
+// Test if the open line segments `lhs` and `rhs` have a point in common. For an
+// open line segment, the endpoints are not considered to be part of the line
+// segment. Consequently, degenerate line segments formed by coinciding
+// endpoints do not intersect.
 template<typename T>
 constexpr auto intersect(const Segment<T>& lhs, const Segment<T>& rhs) -> bool {
   // identical segments
@@ -69,29 +73,44 @@ constexpr auto intersect(const Segment<T>& lhs, const Segment<T>& rhs) -> bool {
 
   const auto area1 = signed_area(lhs.first, lhs.second, rhs.second);
   const auto area2 = signed_area(lhs.first, lhs.second, rhs.first);
+
+  // the endpoints of the RHS segment are truly on the same side of the LHS
+  // segment
   if (area1 * area2 > T{0}) {
     return false;
   }
 
   const auto area3 = signed_area(rhs.first, rhs.second, lhs.first);
   const auto area4 = area3 + area2 - area1;
+
+  // the endpoints of the LHS segment are truly on the same side of the RHS
+  // segment
   if (area3 * area4 > T{0}) {
     return false;
   }
 
-  // segments definitively intersect iff one of the areas is negative
+  // segments definitively intersect if the endpoints of one segment are truly
+  // on opposite sides of the other segment
   if (area1 * area2 < T{0} || area3 * area4 < T{0}) {
     return true;
   }
 
-  // for colinear segments, overlap between segments has to be checked
+  // for colinear segments all areas vanish and overlap between segments has to
+  // be checked
   if (std::ranges::all_of(
           std::array{area1, area2, area3, area4}, [](const auto& area) {
             return std::abs(area) <= std::numeric_limits<T>::epsilon();
           })) {
     for (const auto& p : {rhs.first, rhs.second}) {
-      if (dot(lhs.first - lhs.second, p - lhs.second) > T{0} &&
-          dot(lhs.second - lhs.first, p - lhs.first) > T{0}) {
+      if (dot(lhs.first - lhs.second, p - lhs.second) >= T{0} &&
+          dot(lhs.second - lhs.first, p - lhs.first) >= T{0}) {
+        return true;
+      }
+    }
+
+    for (const auto& p : {lhs.first, lhs.second}) {
+      if (dot(rhs.first - rhs.second, p - rhs.second) >= T{0} &&
+          dot(rhs.second - rhs.first, p - rhs.first) >= T{0}) {
         return true;
       }
     }

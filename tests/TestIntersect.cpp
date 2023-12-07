@@ -86,13 +86,43 @@ TEST_CASE("BinaryIntersection", "[unit]") {
                           Segment<float>{{-1, 0}, {1, 0}}));
   }
 
-  ///   ____.__.____
+  ///   x____o__x____o
   SECTION("overlapping") {
     CHECK(intersect(Segment<float>{{0, 0}, {2, 0}},
                     Segment<float>{{1, 0}, {3, 0}}));
 
     CHECK(intersect(Segment<float>{{1, 0}, {3, 0}},
                     Segment<float>{{0, 0}, {2, 0}}));
+  }
+
+  ///   x_____o_____x|o
+  SECTION("coinciding") {
+    CHECK(intersect(Segment<float>{{0, 0}, {2, 0}},
+                    Segment<float>{{1, 0}, {2, 0}}));
+
+    CHECK(intersect(Segment<float>{{1, 0}, {2, 0}},
+                    Segment<float>{{0, 0}, {2, 0}}));
+  }
+
+  ///   x____o__o____x
+  SECTION("contained") {
+    CHECK(intersect(Segment<float>{{0, 0}, {3, 0}},
+                    Segment<float>{{1, 0}, {2, 0}}));
+
+    CHECK(intersect(Segment<float>{{0, 0}, {3, 0}},
+                    Segment<float>{{2, 0}, {1, 0}}));
+
+    CHECK(intersect(Segment<float>{{3, 0}, {0, 0}},
+                    Segment<float>{{1, 0}, {2, 0}}));
+
+    CHECK(intersect(Segment<float>{{3, 0}, {0, 0}},
+                    Segment<float>{{2, 0}, {1, 0}}));
+
+    CHECK(intersect(Segment<float>{{1, 0}, {2, 0}},
+                    Segment<float>{{0, 0}, {3, 0}}));
+
+    CHECK(intersect(Segment<float>{{2, 0}, {1, 0}},
+                    Segment<float>{{0, 0}, {3, 0}}));
   }
 
   ///   ______   ______
